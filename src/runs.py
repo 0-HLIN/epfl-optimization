@@ -1,12 +1,10 @@
 import time
 import numpy as np
 import ray
-from utils import ParameterServer, DataWorker
 
-max_seed = 114514
+MAX_SEED = 10_000
 
-@ray.remote
-class ParameterServer(object):
+class ParameterServerBase(object):
     def __init__(self, lr, asynchronous, dim=None):
         self.x = np.zeros(dim)
         self.lr = lr
@@ -31,6 +29,40 @@ class ParameterServer(object):
         
     def get_hyperparams(self):
         return self.lr, self.asynchronous
+    
+@ray.remote
+class PSDefault(ParameterServerBase):
+    pass
+
+
+@ray.remote
+class PSMomentum(ParameterServerBase):
+    def __init__(self, lr, asynchronous, gamma=0.9, dim=None):
+        super().__init__(lr, asynchronous)
+        self.v = np.zeros_like(self.x)
+        self.gamma = gamma
+        
+    def apply_gradients(self, grad, *gradients):
+        if not self.asynchronous:
+            grad = np.sum(gradients, axis=0)
+            print(grad.shape)
+        self.v = self.gamma * self.v + (1 - self.gamme) * grad
+        self.x -= self.lr * self.v
+        return self.x
+
+    def get_x(self):
+        return self.x
+    
+    def update_lr(self, lr_coef_mul=1, lr_new=None):
+        if lr_new is not None:
+            self.lr = lr_new
+        else:
+            self.lr *= lr_coef_mul
+        
+    def get_hyperparams(self):
+        return self.lr, self.asynchronous
+
+
 
 
 @ray.remote
@@ -55,9 +87,9 @@ class DataWorker(object):
         if self.batch_size is None:
             grad = self.obj.grad_func(x)
         elif self.batch_size == 1:
-            grad = self.sgrad_func(self.rng, x)
+            grad = self.obj.sgrad_func(self.rng, x)
         else:
-            grad = self.batch_grad_func(self.rng, x, self.batch_size)
+            grad = self.obj.batch_grad_func(self.rng, x, self.batch_size)
         if self.bad_worker:
             dt = time.perf_counter() - t0
             time.sleep(100 * dt)
@@ -76,15 +108,16 @@ class DataWorker(object):
         return self.lr
 
 
-def run(objective, seeds, num_workers, lr, lr_decay=0, iterations=200, asynchronous=True, delay_adaptive=False, it_check=20,
-        batch_size=1, one_bad_worker=False):
+def run(obj, seed, num_workers, lr, lr_decay=0, iterations=200, asynchronous=True, delay_adaptive=False, it_check=20,
+        batch_size=1, one_bad_worker=False,
+        PSClass=PSDefault):
     delays_all = []
     worker_updates = [0 for i in range(num_workers)]
-    rng = np.random.default_rng(42)
-    seeds_workers = [rng.choice(max_seed, size=1, replace=False)[0] for _ in range(num_workers)]
+    rng = np.random.default_rng(seed)
+    seeds_workers = [rng.choice(MAX_SEED, size=1, replace=False)[0] for _ in range(num_workers)]
     ray.init(ignore_reinit_error=True)
-    ps = ParameterServer.remote(lr, asynchronous)
-    workers = [DataWorker.remote(objective, lr=lr, batch_size=batch_size, seed=seeds_workers[i]) for i in range(num_workers)]
+    ps = PSClass.remote(lr, asynchronous, dim=obj.D)
+    workers = [DataWorker.remote(obj, lr=lr, batch_size=batch_size, seed=seeds_workers[i]) for i in range(num_workers)]
 
     x = ps.get_x.remote()
     if asynchronous:
@@ -143,4 +176,4 @@ def run(objective, seeds, num_workers, lr, lr_decay=0, iterations=200, asynchron
             delays.append(delay)
 
     ray.shutdown()
-    return np.asarray(its), np.asarray(ts), np.asarray([objective.evaluate(x) for x in trace]), np.asarray(delays)
+    return np.asarray(its), np.asarray(ts), np.asarray([obj.evaluate(x) for x in trace]), np.asarray(delays)
