@@ -75,8 +75,8 @@ class DataWorker(object):
         seed (int, optional): random seed to generate random variables for reproducibility (default: 0)
         bad_worker (bool, optional): if True, the worker will be forced to be slower than others (default: False)
     """
-    def __init__(self, obj, lr, batch_size=1, seed=0, bad_worker=False):
-        self.obj = obj
+    def __init__(self, optim, lr, batch_size=1, seed=0, bad_worker=False):
+        self.optim = optim
         self.lr = lr
         self.batch_size = batch_size
         self.bad_worker = bad_worker
@@ -84,12 +84,18 @@ class DataWorker(object):
 
     def compute_gradients(self, x):
         t0 = time.perf_counter()
+        grad = self.optim.gradient(x, self.rng)
+        if self.bad_worker:
+            dt = time.perf_counter() - t0
+            time.sleep(100 * dt)
+        return grad
+        t0 = time.perf_counter()
         if self.batch_size is None:
-            grad = self.obj.grad_func(x)
+            grad = self.optim.grad_func(x)
         elif self.batch_size == 1:
-            grad = self.obj.sgrad_func(self.rng, x)
+            grad = self.optim.sgrad_func(self.rng, x)
         else:
-            grad = self.obj.batch_grad_func(self.rng, x, self.batch_size)
+            grad = self.optim.batch_grad_func(self.rng, x, self.batch_size)
         if self.bad_worker:
             dt = time.perf_counter() - t0
             time.sleep(100 * dt)
@@ -108,7 +114,7 @@ class DataWorker(object):
         return self.lr
 
 
-def run(obj, seed, num_workers, lr, lr_decay=0, iterations=200, asynchronous=True, delay_adaptive=False, it_check=20,
+def run(obj, optim, seed, num_workers, lr, lr_decay=0, iterations=200, asynchronous=True, delay_adaptive=False, it_check=20,
         batch_size=1, one_bad_worker=False,
         PSClass=PSDefault):
     delays_all = []
@@ -117,7 +123,7 @@ def run(obj, seed, num_workers, lr, lr_decay=0, iterations=200, asynchronous=Tru
     seeds_workers = [rng.choice(MAX_SEED, size=1, replace=False)[0] for _ in range(num_workers)]
     ray.init(ignore_reinit_error=True)
     ps = PSClass.remote(lr, asynchronous, dim=obj.D)
-    workers = [DataWorker.remote(obj, lr=lr, batch_size=batch_size, seed=seeds_workers[i]) for i in range(num_workers)]
+    workers = [DataWorker.remote(optim, lr=lr, batch_size=batch_size, seed=seeds_workers[i]) for i in range(num_workers)]
 
     x = ps.get_x.remote()
     if asynchronous:
