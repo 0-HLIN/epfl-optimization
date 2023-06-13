@@ -3,6 +3,7 @@ Gradient Descent
 """
 
 # Imports
+import time
 import torch
 import torch.nn as nn
 import numpy as np
@@ -30,8 +31,7 @@ class DNN(nn.Module):
 class GDStandard:
     def __init__(self, data_train, data_test, K, batch_size=128, device='cpu', 
                  hidden_sizes=64, 
-                 OptimClass=torch.optim.SGD,
-                 lr=1e-2,
+                 OptimClass=torch.optim.SGD, optim_args={'lr': 0.01},
                  seed=42):
         """
         To reproduce the results in the paper, set batch_size to # of training samples.
@@ -51,7 +51,7 @@ class GDStandard:
         self.model = DNN(self.x_train.shape[1], hidden_sizes, self.K)
 
         # Initialize the optimizer
-        self.optimizer = OptimClass(self.model.parameters(), lr=lr)
+        self.optimizer = OptimClass(self.model.parameters(), **optim_args)
 
         # Initialize the loss function
         self.loss_fn = nn.CrossEntropyLoss()
@@ -68,12 +68,15 @@ class GDStandard:
         test_losses = []
         train_accs = []
         test_accs = []
+        times = []
 
         for epoch in range(num_epochs):
             # Train
+            start = time.time()
             train_loss, train_acc = self.train_epoch()
             train_losses.append(train_loss)
             train_accs.append(train_acc)
+            times.append(time.time() - start)
 
             # Test
             test_loss, test_acc = self.test()
@@ -87,7 +90,8 @@ class GDStandard:
             "loss_tr": train_losses,
             "loss_te": test_losses,
             "acc_tr": train_accs,
-            "acc_te": test_accs
+            "acc_te": test_accs,
+            "times": times
         }
     
     def train_epoch(self):
