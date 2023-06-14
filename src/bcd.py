@@ -35,7 +35,9 @@ class ThreeSplitBCD:
             hidden_sizes: a list of hidden layer sizes
             depth: the number of hidden layers
             K: the number of classes
+            verbose: False not to print, int for printing frequency
         """
+        torch.manual_seed(seed)
         self.K = K
         self.batch_size = batch_size
         self.x_train, self.y_train = data_train
@@ -64,7 +66,8 @@ class ThreeSplitBCD:
         self.alphas = [5] * (2 * len(self.params))
         self.rhos = [1] * len(self.params)
     
-    def train(self, niter=50):
+    def _train(self, niter=50, verbose=False):
+        """ Not used: old version """
         # Preprocess data
         # sample batch from training data
         idx_tr = np.random.choice(self.x_train.shape[0], self.batch_size, replace=False)
@@ -78,30 +81,31 @@ class ThreeSplitBCD:
         self.forward_pass(x_train)
 
         # Training logs
-        loss1 = np.empty(niter)
-        loss2 = np.empty(niter)
-        accuracy_train = np.empty(niter)
-        accuracy_test = np.empty(niter)
-        time1 = np.empty(niter)
+        loss1 = []
+        loss2 = []
+        accuracy_train = []
+        accuracy_test = []
+        time1 = []
 
         # Backward pass to update the parameters
         for k in range(niter):
             start = time.time()
             self.backward_pass(x_train, y_train, y_one_hot)
             end = time.time()
-            time1[k] = end - start
+            time1.append(end - start)
 
             # Compute loss and accuracy
             l1,l2,acc_tr,acc_te = self.compute_metrcs(x_train, y_train, y_one_hot, x_test, y_test)
-            loss1[k] = l1
-            loss2[k] = l2
-            accuracy_train[k] = acc_tr
-            accuracy_test[k] = acc_te
+            loss1.append(l1)
+            loss2.append(l2)
+            accuracy_train.append(acc_tr)
+            accuracy_test.append(acc_te)
 
             # print results
-            print('Epoch', k + 1, '/', niter, '\n', 
-                '-', 'time:', time1[k], '-', 'sq_loss:', loss1[k], '-', 'tot_loss:', loss2[k], 
-                '-', 'acc:', accuracy_train[k], '-', 'val_acc:', accuracy_test[k])
+            if verbose and (k+1) % verbose == 0:
+                print('Epoch', k + 1, '/', niter, '\n', 
+                    '-', 'time:', time1[-1], '-', 'sq_loss:', l1, '-', 'tot_loss:', l2, 
+                    '-', 'acc:', acc_tr, '-', 'val_acc:', acc_te)
             
         return {
             'loss1': loss1,
@@ -110,6 +114,104 @@ class ThreeSplitBCD:
             'acc_te': accuracy_test,
             'time': time1
         }
+
+    def train(self, niter=1, niter_inner=50, log_inner=False, shuffle=True, verbose=False):
+        # Preprocess data
+        x_train_full, y_train_full = self.x_train, self.y_train
+        x_test, y_test = self.x_test, self.y_test
+
+        x_train_full, y_train_full, y_one_hot_full = self.preprocess_data(x_train_full, y_train_full)
+        x_test, y_test, _ = self.preprocess_data(x_test, y_test)
+
+        # Training logs
+        loss1 = []
+        loss2 = []
+        accuracy_train = []
+        accuracy_test = []
+        time1 = []
+        if log_inner:
+            loss1_inner = []
+            loss2_inner = []
+            accuracy_train_inner = []
+            accuracy_test_inner = []
+
+        for iter in range(niter):
+            
+            # sample batch from training data
+            if shuffle:
+                idx_tr = np.random.choice(x_train_full.shape[1], self.batch_size, replace=False)
+            else:
+                idx_tr = np.arange(self.batch_size)
+            x_train, y_train, y_one_hot = x_train_full[:,idx_tr], y_train_full[idx_tr], y_one_hot_full[:,idx_tr]
+            # Forward pass to initialize the neural network states: U,V
+            start = time.time()
+            self.forward_pass(x_train)
+            timne_forward = time.time() - start
+
+            l1_iter = 0
+            l2_iter = 0
+            acc_tr_iter = 0
+            acc_te_iter = 0
+            time_iter = timne_forward
+            # Backward pass to update the parameters
+            for k in range(niter_inner):
+                start = time.time()
+                self.backward_pass(x_train, y_train, y_one_hot)
+                end = time.time()
+                time_iter += end - start
+
+                # Compute loss and accuracy
+                l1,l2,acc_tr,acc_te = self.compute_metrcs(x_train, y_train, y_one_hot, x_test, y_test)
+                if log_inner:
+                    loss1_inner.append(l1)
+                    loss2_inner.append(l2)
+                    accuracy_train_inner.append(acc_tr)
+                    accuracy_test_inner.append(acc_te)
+                    if verbose and (k+1) % 10 == 0:
+                        print('Inner Iter', k + 1, '/', niter_inner, '\n', 
+                            '-', 'time:', time_iter, '-', 'sq_loss:', l1, '-', 'tot_loss:', l2, 
+                            '-', 'acc:', acc_tr, '-', 'val_acc:', acc_te)
+
+                l1_iter += l1
+                l2_iter += l2
+                acc_tr_iter = acc_tr # only keep last value
+                acc_te_iter = acc_te # only keep last value
+
+            l1_iter /= niter_inner
+            l2_iter /= niter_inner
+            # acc_tr_iter /= niter_inner
+            # acc_te_iter /= niter_inner
+            # print results
+            if verbose and (iter+1) % verbose == 0:
+                print('Iter', iter + 1, '/', niter, '\n', 
+                    '-', 'time:', time_iter, '-', 'sq_loss:', l1_iter, '-', 'tot_loss:', l2_iter, 
+                    '-', 'acc:', acc_tr_iter, '-', 'val_acc:', acc_te_iter)
+        
+            loss1.append(l1_iter)
+            loss2.append(l2_iter)
+            accuracy_train.append(acc_tr_iter)
+            accuracy_test.append(acc_te_iter)
+            time1.append(time_iter)
+
+        print("Total train time:", sum(time1), "s")
+        
+        results = {
+            'loss1': loss1,
+            'loss2': loss2,
+            'acc_tr': accuracy_train,
+            'acc_te': accuracy_test,
+            'time': time1
+        }
+        if log_inner:
+            results_inner = {
+                'loss1': loss1_inner,
+                'loss2': loss2_inner,
+                'acc_tr': accuracy_train_inner,
+                'acc_te': accuracy_test_inner
+            }
+            return results, results_inner
+        else:
+            return results
 
 
     def forward_pass(self, x_train):
@@ -184,6 +286,8 @@ class ThreeSplitBCD:
             U = self.nn_states[l][0]
             V_prev = self.nn_states[l-1][1] if l != 0 else x
             loss2 += rho/2 * torch.pow(torch.dist(torch.addmm(b.repeat(1,N), W, V_prev),U,2),2).cpu().numpy()
+        loss1 = loss1.item()
+        loss2 = loss2.item()
         # Copmute accuracy
         correct = self.predict(x) == y
         acc = np.mean(correct.cpu().numpy())
@@ -191,7 +295,7 @@ class ThreeSplitBCD:
         # Compute test accuracy
         if x_test is not None and y_test is not None:
             correct_test = self.predict(x_test) == y_test
-            acc_test = np.mean(correct_test.cpu().numpy())
+            acc_test = np.mean(correct_test.cpu().numpy()).item()
         else:
             acc_test = None
         

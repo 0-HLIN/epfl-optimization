@@ -86,6 +86,7 @@ class GDStandard:
             if verbose:
                 print(f"Epoch {epoch+1}/{num_epochs}: Train Loss: {train_loss:.4f}, Train Acc: {train_acc:.4f}, Test Loss: {test_loss:.4f}, Test Acc: {test_acc:.4f}")
         
+        print("total train time:", sum(times), "s")
         return {
             "loss_tr": train_losses,
             "loss_te": test_losses,
