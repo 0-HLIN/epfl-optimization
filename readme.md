@@ -23,11 +23,11 @@ All BCD use deep network with 3 hidden layers each contains 1500 neurons, the ou
 | RMSProp        | 2258.7 - 539.5   | 0.7  | 2.0    | ~61  s   | 0.965 | 11 |
 | Adam           | 2257.2 - 539.5   | 0.9  | 2.0     | ~69 s   | 0.957 | 23 |
 
-![Training acc](images\compare_acc_train.png)
-![Test acc](images\compare_acc_test.png)
+![Training acc](images/compare_acc_train.png)
+![Test acc](images/compare_acc_test.png)
 
-![Training acc](images\compare_acc_train_with_mb.png)
-![Test acc](images\compare_acc_test_with_mb.png)
+![Training acc](images/compare_acc_train_with_mb.png)
+![Test acc](images/compare_acc_test_with_mb.png)
 
 
 **Notes**
