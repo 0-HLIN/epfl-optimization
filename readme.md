@@ -1,8 +1,9 @@
 # EPFL - OptML - CS-439 - Project
 
 ### TODO
-- [ ] Compare BCD batch to stardard gradient descent mini-batch (time, convergence, accuracy)
-- [ ] BCD with mini-batch
+- [x] Compare BCD batch to stardard gradient descent mini-batch (time, convergence, accuracy)
+- [x] BCD with mini-batch
+- [ ] in [table](###BCDvsStadardSGD), change *iter before 0.94 acc* to *number of data passed before* ?
 
 
 ## Results
