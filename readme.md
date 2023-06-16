@@ -1,4 +1,12 @@
-# EPFL - OptML - CS-439 - Project
+# EPFL - OptML - CS439 - Project
+
+## About the project
+We implemented Three-Split BCD algorithm introduced in the paper [Global Convergence of Block Coordinate Descent in Deep Learning](https://arxiv.org/abs/1803.00225) by Zeng et al. 
+We generalize the algorithm into mini-batch version consisting of inner and outer loop.
+Through iterative testing and balancing adjustments of hyperparameters such as batchsize and the number of inner/outer iterations, we sought to examine their influence on the training outcomes. 
+The minibatch variant attains similar test accuracy while substantially reducing CUDA memory usage. 
+Experimental observations further elucidate the convergence characteristics of the original three-split BCD method. 
+
 
 ## File Structure
 
@@ -26,13 +34,13 @@ All BCD use deep network with 3 hidden layers each contains 1500 neurons, the ou
 
 ### BCD vs Stadard SGD
 
-| Models | CPU | GPU Allocated | GPU Cached | Training time | Final test acc | iters before achieving 0.94 acc
-| --- | --- | --- | --- | --- | --- | --- |
-| BCD full batch | 2386.0 - 562.4 | 2090.3 | 5128.0 | ~76  s   | 0.946 | 15 |
-| BCD b4096      | 2553.2 - 562.5 | 166.0  | 794.0  | ~117 s   | 0.948 | 13x12 |
-| SGD momentum 0.9 | 2255.6 - 537.9 | 0.7  | 2.0    | ~58  s   | 0.945 | 41 |
-| RMSProp        | 2258.7 - 539.5   | 0.7  | 2.0    | ~61  s   | 0.965 | 11 |
-| Adam           | 2257.2 - 539.5   | 0.9  | 2.0     | ~69 s   | 0.957 | 23 |
+| Models | CPU | GPU Allocated | GPU Cached | Training time | Final test acc | iters before achieving 0.94 acc | Number of data samples before 0.94 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| BCD full batch | 2386.0 - 562.4 | 2090.3 | 5128.0 | ~76  s   | 0.946 | 15    | 9.0e5 |
+| BCD b4096      | 2553.2 - 562.5 | 166.0  | 794.0  | ~117 s   | 0.948 | 13x12 | 6.4e5 |
+| SGD momentum 0.9 | 2255.6 - 537.9 | 0.7  | 2.0    | ~58  s   | 0.945 | 41    | 2.4e6 |
+| RMSProp        | 2258.7 - 539.5   | 0.7  | 2.0    | ~61  s   | 0.965 | 11    | 1.1e5 |
+| Adam           | 2257.2 - 539.5   | 0.9  | 2.0     | ~69 s   | 0.957 | 23    | 2.3e5 |
 
 | Train Acc | Test Acc |
 |:---:|:---:|
