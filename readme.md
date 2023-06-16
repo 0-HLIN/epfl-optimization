@@ -1,10 +1,20 @@
 # EPFL - OptML - CS-439 - Project
 
-### TODO
-- [x] Compare BCD batch to stardard gradient descent mini-batch (time, convergence, accuracy)
-- [x] BCD with mini-batch
-- [ ] in [table](###BCDvsStadardSGD), change *iter before 0.94 acc* to *number of data passed before* ?
+## File Structure
 
+    .
+    ├── notebooks
+    |   ├── bcd.ipynb       # Demo of some experiments
+    |   ├── plot.ipynb      # Demo for reproducing plots from logs
+    ├── src
+    |   ├── bcd.py          # Source code of our BCD implementation
+    |   ├── gd.py           # Runner of stardard gradient descent methods
+    |   ├── run_bcd.py      # Script of BCD training process
+    |   ├── run_gd.py       # Script of (standard) GD training process
+    |   ├── utils.py
+    ├── results             # Logs of all conducted experiments
+    ├── images              # Some typical running plots, produced from logs
+    
 
 ## Results
 
@@ -31,7 +41,7 @@ All BCD use deep network with 3 hidden layers each contains 1500 neurons, the ou
 
 
 **Notes**
-- Memory usage in MB
+- Memory usage in MB, CPU memory indicates usage after and before training. 
 - Training time does not include time consumed for validation during training.
 - full batch runs 50 iterations each passes through all 60_000 training data, achieves test acc of 0.94 after 15 epochs.
 - BCD b4096 runs 50x12 iterations, each passes through 4096 training data, ahieves test acc of 0.94 after 13x12 iterations. 
@@ -76,12 +86,10 @@ def train(niter_outer, niter_inner):
 
 
 **Notes**
-- *acc train is the accuracy of the last inner loop iteration, measured on the batch of data used for the inner loop, thus this value could be very noisy due to little data in the mini-batch. 
+- *acc train is the accuracy of the last inner loop iteration, measured on the batch of data used for the inner loop, thus this value could be very noisy due to little data in the mini-batch. acc train is 1 means that model perfectly classifies that mini-batch of data. 
 - acc test is the accuracy of the last inner loop iteration, measured on the whole test data (10_000 samples). 
-- acc train is 1 means that model perfectly classifies that mini-batch of data. 
-- 
 
-### `niter_outer` and `niter_inner` against overfitting
+### Inner and Outer Iteration Balance
 
 Setting:
 - Experiments with fixed `niter_outer` x `niter_inner` x `batch_size`. 
@@ -89,12 +97,13 @@ Setting:
 
 Observation:
 - Too large `niter_inner` leads to overfitting of the model, 
-- however the learning will be significantly slower with too small `niter_inner`
+- However the learning will be significantly slower with too small `niter_inner`
+- During inner iterations within an outer iteration, the test acc first increase than decrease.
 
 | Batch size | `niter_inner` | `niter_outer` | Results |
 |:---:|:---:|:---:|:---:|
 |128  |50   |60   | ![bcd_b128_o50_i60_outer](images/bcd_b128_o50_i60_outer.png)  ![bcd_b128_o50_i60_inner](images/bcd_b128_o50_i60_inner.png) |
-|128  |100  |15   | ![bcd_b128_o200_i15_outer](images/bcd_b128_o200_i15_outer.png) ![bcd_b128_o200_i15_inner](images/bcd_b128_o200_i15_inner.png) |
+|128  |200  |15   | ![bcd_b128_o200_i15_outer](images/bcd_b128_o200_i15_outer.png) ![bcd_b128_o200_i15_inner](images/bcd_b128_o200_i15_inner.png) |
 |256  |50   |30   | ![bcd_b256_o50_i30_outer](images/bcd_b256_o50_i30_outer.png) ![bcd_b256_o50_i30_inner](images/bcd_b256_o50_i30_inner.png) |
 |256  |100  |15   | ![bcd_b256_o100_i15_outer](images/bcd_b256_o100_i15_outer.png) ![bcd_b256_o100_i15_inner](images/bcd_b256_o100_i15_inner.png) |
 |1024 |5    |75   | ![bcd_b1024_o5_i75_outer](images/bcd_b1024_o5_i75_outer.png) ![bcd_b1024_o5_i75_inner](images/bcd_b1024_o5_i75_inner.png) |
